@@ -1,12 +1,36 @@
 ## Stock Price Prediction Platform
 
-Modern end-to-end stock price prediction platform with:
+<div align="center">
 
-- **Backend**: FastAPI, ML models (e.g. LSTM), REST API for predictions and portfolio/market data
-- **Frontend**: Next.js/React dashboard for charts, predictions, and portfolio views
-- **Infrastructure**: Docker + `docker-compose`, Nginx gateway, Makefile helpers
+**End‑to‑end ML-powered stock prediction dashboard**
 
-This repository is designed as a **professional, production-ready template** for time‑series prediction projects, with clear separation between backend, frontend, and infrastructure.
+[![Dockerized](https://img.shields.io/badge/deploy-dockerized-blue)](https://www.docker.com/)
+[![FastAPI](https://img.shields.io/badge/backend-FastAPI-009688)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/frontend-Next.js-black)](https://nextjs.org/)
+[![Status](https://img.shields.io/badge/status-active-success)](#)
+
+</div>
+
+---
+
+### Overview
+
+- **Backend**: FastAPI with ML models (e.g. LSTM) exposed via typed REST APIs
+- **Frontend**: Next.js/React trading-style dashboard for charts, predictions, and market views
+- **Infrastructure**: Docker + `docker-compose`, Nginx gateway, and Makefile helpers for a smooth DX
+
+This repository is designed as a **professional, production‑ready template** for time‑series / stock‑prediction projects, with clear separation between backend, frontend, and infrastructure.
+
+---
+
+### Tech Stack At A Glance
+
+| Layer          | Technologies                                |
+| ------------- | ------------------------------------------- |
+| **Frontend**  | Next.js, React, TypeScript, modern UI/UX   |
+| **Backend**   | FastAPI, Python, ML (e.g. LSTM)             |
+| **Data**      | Finnhub, Alpha Vantage, local JSON fallback |
+| **Infra/Tooling** | Docker, docker-compose, Nginx, Makefile |
 
 ---
 
@@ -24,6 +48,26 @@ This repository is designed as a **professional, production-ready template** for
 - **Dockerized setup**
   - Single command to run the entire stack
   - Nginx reverse proxy / gateway
+
+---
+
+### Screenshots
+
+<div align="center">
+
+**Landing & How It Works**
+
+![Landing and how it works](docs/images/landing-how-it-works.png)
+
+**Stock Search & Popular Stocks**
+
+![Stock search screen](docs/images/stock-search.png)
+
+**Prediction Detail & Strategy**
+
+![Prediction detail screen](docs/images/prediction-detail.png)
+
+</div>
 
 ---
 
