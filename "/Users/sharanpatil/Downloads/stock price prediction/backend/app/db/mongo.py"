@@ -1,8 +1,0 @@
-from pymongo import MongoClient
-
-from app.core.config import settings
-
-
-mongo_client = MongoClient(settings.MONGO_DSN)
-mongo_db = mongo_client.get_default_database()
-

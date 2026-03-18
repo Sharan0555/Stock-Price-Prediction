@@ -8,3 +8,6 @@ services:
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health
     autoDeploy: true
+
+# Note: The Next.js frontend is deployed separately (e.g. Vercel).
+# If you want Render to host the frontend too, add a second service for `rootDir: frontend`.

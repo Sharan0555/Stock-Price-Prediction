@@ -26,11 +26,11 @@ services:
     env_file:
       - .env
     environment:
-      POSTGRES_DSN: postgresql+psycopg2://postgres:postgres@postgres:5432/stocks
-      MONGO_DSN: mongodb://mongo:27017/stocks
-      REDIS_URL: redis://redis:6379/0
-      JWT_SECRET_KEY: super-secret-change-me
-      BACKEND_CORS_ORIGINS: '["http://127.0.0.1","http://localhost","http://127.0.0.1:80","http://localhost:80"]'
+      POSTGRES_DSN: ${POSTGRES_DSN:-postgresql+psycopg2://postgres:postgres@postgres:5432/stocks}
+      MONGO_DSN: ${MONGO_DSN:-mongodb://mongo:27017/stocks}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-["http://localhost","http://127.0.0.1","http://localhost:3000","http://127.0.0.1:3000","http://localhost:80","http://127.0.0.1:80"]}
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,10 +48,10 @@ services:
     build:
       context: ./frontend
       args:
-        NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1}
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1}
     depends_on:
       backend:
         condition: service_healthy
@@ -69,7 +69,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      # Bind to localhost only (safer default; still accessible from host for local dev)
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -82,7 +83,8 @@ services:
     image: mongo:7
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      # Bind to localhost only (safer default; still accessible from host for local dev)
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongo_data:/data/db
     healthcheck:
@@ -95,7 +97,8 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      # Bind to localhost only (safer default; still accessible from host for local dev)
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
