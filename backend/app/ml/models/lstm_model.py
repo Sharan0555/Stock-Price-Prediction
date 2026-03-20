@@ -43,13 +43,32 @@ class LSTMStockModel:
         self._keras = keras
 
         if MODEL_PATH.exists():
-            self.model = keras.models.load_model(MODEL_PATH)
+            self.model = self._load_keras_model()
         else:
             print(
                 "[LSTMStockModel] No artifact found — using small Keras dummy. "
                 "Run train_lstm.py to generate a real model.",
             )
             self.model = self._build_keras_dummy_model()
+
+    def _load_keras_model(self):
+        keras = self._keras
+
+        class CompatibleLSTM(keras.layers.LSTM):
+            @classmethod
+            def from_config(cls, config):
+                cleaned = dict(config)
+                cleaned.pop("time_major", None)
+                return cls(**cleaned)
+
+        return keras.models.load_model(
+            MODEL_PATH,
+            compile=False,
+            custom_objects={
+                "LSTM": CompatibleLSTM,
+                "CompatibleLSTM": CompatibleLSTM,
+            },
+        )
 
     def _build_keras_dummy_model(self):
         keras = self._keras

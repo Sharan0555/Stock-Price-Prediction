@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,6 +10,9 @@ from app.api.v1 import (
     routes_stocks,
 )
 from app.core.config import settings
+from app.routes.prices import router as prices_router
+from app.routes.finnhub_ws import router as finnhub_ws_router, finnhub_listener
+from app.routes.news import router as news_router
 
 
 def create_app() -> FastAPI:
@@ -19,7 +23,7 @@ def create_app() -> FastAPI:
         openapi_url="/api/openapi.json",
     )
 
-    origin_regex = None
+    origin_regex = r"^http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$"
     if settings.BACKEND_CORS_ORIGINS:
         origins = []
         for origin in settings.BACKEND_CORS_ORIGINS:
@@ -37,7 +41,6 @@ def create_app() -> FastAPI:
             "http://localhost:3001",
             "http://127.0.0.1:3001",
         ]
-        origin_regex = r"^http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?$"
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
@@ -60,8 +63,15 @@ def create_app() -> FastAPI:
         prefix="/api/v1/portfolio",
         tags=["portfolio"],
     )
+    app.include_router(prices_router, tags=["prices"])
+    app.include_router(finnhub_ws_router, tags=["prices"])
+    app.include_router(news_router, tags=["news"])
 
     return app
 
 
 app = create_app()
+
+@app.on_event("startup")
+async def startup():
+    asyncio.create_task(finnhub_listener())

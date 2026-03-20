@@ -1129,8 +1129,6 @@ async def get_inr_exchange_rate(
 async def get_realtime_price(
     symbol: str,
     allow_local: bool = Query(True),
-    service: FinnhubService = Depends(get_finnhub_service),
-    alpha: AlphaVantageService = Depends(get_alpha_vantage_service),
     local_data: LocalDataService = Depends(get_local_data_service),
     yfinance: YFinanceService = Depends(get_yfinance_service),
 ) -> dict:
@@ -1146,68 +1144,27 @@ async def get_realtime_price(
         quote = local_data.get_quote(sym, currency)
         return {"symbol": sym, "quote": quote, "source": "local"}
 
-    if is_inr:
-        if settings.ALPHAVANTAGE_API_KEY:
-            try:
-                candidates = _alpha_candidates(sym)
-                quote = alpha.get_first_quote(candidates)
-                return {"symbol": sym, "quote": quote, "source": "alpha_vantage"}
-            except Exception as exc:
-                if not allow_local:
-                    raise HTTPException(
-                        status_code=502, detail=f"Alpha Vantage error: {exc}"
-                    ) from exc
-        try:
-            yf_quote = await yfinance.get_quote(sym, is_inr=True)
-            if yf_quote and yf_quote.get("c"):
-                return {"symbol": sym, "quote": yf_quote, "source": "yfinance"}
-        except Exception:
-            pass
-
+    cache_key = f"quote:yfinance:{sym}"
+    cached = _cache_get(cache_key, 10)
+    if cached is not None:
+        return cached
+    try:
+        yf_quote = await yfinance.get_quote(sym, is_inr=is_inr)
+        if yf_quote and yf_quote.get("c"):
+            response = {"symbol": sym, "quote": yf_quote, "source": "yfinance"}
+            _cache_set(cache_key, response, 10)
+            return response
+    except Exception as exc:
         if not allow_local:
             raise HTTPException(
                 status_code=502,
-                detail="Alpha Vantage unavailable and local fallback disabled.",
-            )
-        quote = local_data.get_quote(sym, currency)
-        return {"symbol": sym, "quote": quote, "source": "local"}
-
-    _ck = f"quote:{sym}"
-    _cv = _cache_get(_ck, 30)
-    if _cv is not None:
-        return _cv
-    if settings.FINNHUB_API_KEY:
-        try:
-            quote = await service.get_realtime_quote(sym)
-            _cache_set(
-                f"quote:{sym}",
-                {"symbol": sym, "quote": quote, "source": "finnhub"},
-                30,
-            )
-            return {"symbol": sym, "quote": quote, "source": "finnhub"}
-        except Exception as exc:
-            if not allow_local:
-                raise HTTPException(
-                    status_code=502,
-                    detail=f"Finnhub error: {exc}",
-                ) from exc
-    elif not allow_local:
-        raise HTTPException(
-            status_code=502,
-            detail="FINNHUB_API_KEY is not set and local fallback disabled.",
-        )
-
-    try:
-        yf_quote = await yfinance.get_quote(sym, is_inr=False)
-        if yf_quote and yf_quote.get("c"):
-            return {"symbol": sym, "quote": yf_quote, "source": "yfinance"}
-    except Exception:
-        pass
+                detail=f"YFinance error: {exc}",
+            ) from exc
 
     if not allow_local:
         raise HTTPException(
             status_code=502,
-            detail="Live data unavailable and local fallback disabled.",
+            detail="YFinance unavailable and local fallback disabled.",
         )
     quote = local_data.get_quote(sym, currency)
     return {"symbol": sym, "quote": quote, "source": "local"}

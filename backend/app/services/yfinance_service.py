@@ -5,12 +5,22 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
+import pytz
 import yfinance as yf
 
 _executor = ThreadPoolExecutor(max_workers=4)
 
 
 class YFinanceService:
+    def _is_market_open(self, *, is_inr: bool) -> bool:
+        zone = pytz.timezone("Asia/Kolkata" if is_inr else "America/New_York")
+        now = datetime.now(zone)
+        if now.weekday() >= 5:
+            return False
+        if is_inr:
+            return now.time() >= datetime.strptime("09:15", "%H:%M").time() and now.time() <= datetime.strptime("15:30", "%H:%M").time()
+        return now.time() >= datetime.strptime("09:30", "%H:%M").time() and now.time() <= datetime.strptime("16:00", "%H:%M").time()
+
     def _to_timestamp(self, value) -> int:
         if hasattr(value, "to_pydatetime"):
             value = value.to_pydatetime()
@@ -92,33 +102,68 @@ class YFinanceService:
                 return info
         return {}
 
-    def _get_quote_sync(self, symbol: str) -> dict:
+    def _get_quote_sync(self, symbol: str, *, is_inr: bool) -> dict:
         ticker = yf.Ticker(symbol)
+        market_open = self._is_market_open(is_inr=is_inr)
+
+        if market_open:
+            intraday = ticker.history(period="1d", interval="1m", auto_adjust=False)
+            if intraday is not None and not intraday.empty:
+                daily = ticker.history(period="5d", interval="1d", auto_adjust=False)
+                prev_close = 0.0
+                if daily is not None and len(daily) >= 2:
+                    prev_close = round(float(daily["Close"].iloc[-2]), 2)
+                open_price = round(float(intraday["Open"].iloc[0]), 2)
+                current_price = round(float(intraday["Close"].iloc[-1]), 2)
+                high_price = round(float(intraday["High"].max()), 2)
+                low_price = round(float(intraday["Low"].min()), 2)
+                if prev_close == 0.0:
+                    prev_close = open_price
+                delta = current_price - prev_close
+                delta_pct = (delta / prev_close) * 100 if prev_close else 0.0
+                return {
+                    "c": current_price,
+                    "d": round(delta, 2),
+                    "dp": round(delta_pct, 2),
+                    "h": high_price,
+                    "l": low_price,
+                    "o": open_price,
+                    "pc": prev_close,
+                    "t": int(self._to_timestamp(intraday.index[-1])),
+                }
+
+        daily = ticker.history(period="5d", interval="1d", auto_adjust=False)
+        if daily is not None and not daily.empty:
+            latest = daily.iloc[-1]
+            current_price = round(float(latest["Close"]), 2)
+            prev_close = current_price
+            if len(daily) >= 2:
+                prev_close = round(float(daily["Close"].iloc[-2]), 2)
+            delta = current_price - prev_close
+            delta_pct = (delta / prev_close) * 100 if prev_close else 0.0
+            return {
+                "c": current_price,
+                "d": round(delta, 2),
+                "dp": round(delta_pct, 2),
+                "h": round(float(latest["High"]), 2),
+                "l": round(float(latest["Low"]), 2),
+                "o": round(float(latest["Open"]), 2),
+                "pc": prev_close,
+                "t": int(self._to_timestamp(daily.index[-1])),
+            }
+
         info = ticker.info or {}
         if not info:
-            df = ticker.history(period="1d")
-            if df is not None and not df.empty:
-                current_price = df["Close"].iloc[-1]
-                return {
-                    "c": round(float(current_price), 2),
-                    "d": 0.0,
-                    "dp": 0.0,
-                    "h": round(float(df["High"].iloc[-1]), 2),
-                    "l": round(float(df["Low"].iloc[-1]), 2),
-                    "o": round(float(df["Open"].iloc[-1]), 2),
-                    "pc": round(float(current_price), 2),
-                    "t": int(datetime.now(timezone.utc).timestamp()),
-                }
             return {}
-        
+
         return {
-            "c": info.get("currentPrice", info.get("regularMarketPrice", 0.0)),
+            "c": round(float(info.get("currentPrice", info.get("regularMarketPrice", 0.0)) or 0.0), 2),
             "d": 0.0,
             "dp": 0.0,
-            "h": info.get("dayHigh", 0.0),
-            "l": info.get("dayLow", 0.0),
-            "o": info.get("open", 0.0),
-            "pc": info.get("previousClose", 0.0),
+            "h": round(float(info.get("dayHigh", 0.0) or 0.0), 2),
+            "l": round(float(info.get("dayLow", 0.0) or 0.0), 2),
+            "o": round(float(info.get("open", 0.0) or 0.0), 2),
+            "pc": round(float(info.get("previousClose", 0.0) or 0.0), 2),
             "t": int(datetime.now(timezone.utc).timestamp()),
         }
 
@@ -127,7 +172,10 @@ class YFinanceService:
         loop = asyncio.get_event_loop()
         for candidate in candidates:
             c = candidate
-            quote = await loop.run_in_executor(_executor, lambda: self._get_quote_sync(c))
+            quote = await loop.run_in_executor(
+                _executor,
+                lambda: self._get_quote_sync(c, is_inr=is_inr),
+            )
             if quote and quote.get("c", 0.0) != 0.0:
                 return quote
         return {}

@@ -48,6 +48,16 @@ class Settings(BaseSettings):
 
     GOOGLE_CLIENT_ID: str = Field(default="", validation_alias="GOOGLE_CLIENT_ID")
 
+    # Anthropic (server-side proxy recommended; do not expose API key to browser)
+    ANTHROPIC_API_KEY: str = Field(
+        default="",
+        validation_alias="ANTHROPIC_API_KEY",
+    )
+    ANTHROPIC_MODEL: str = Field(
+        default="claude-3-5-sonnet-latest",
+        validation_alias="ANTHROPIC_MODEL",
+    )
+
     model_config = SettingsConfigDict(
         case_sensitive=True,
         env_file=(".env", "../.env"),
